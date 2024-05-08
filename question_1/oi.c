@@ -13,7 +13,7 @@ correspondência.
 
 char nomes_arquivos[NUM_THREADS][501] = {{"texto1.txt"}, {"texto2.txt"}}; //vetor de palavras pra armazenar o nome dos arquivos de teste
 int qtd_palavras = 0;
-char *palavra = "marcelo"; //palavra que quero achar
+char *palavra = "piloto"; //palavra que quero achar
 
 pthread_mutex_t mutex;
 
