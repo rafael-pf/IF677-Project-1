@@ -1,0 +1,2 @@
+O piloto habilidoso guiava o avião com destreza pelos céus. Os passageiros confiavam plenamente nas habilidades do piloto. A experiência do piloto era evidente em cada movimento suave da aeronave. O piloto comunicava-se de forma clara e precisa com a torre de controle. Durante o voo noturno, o piloto dependia dos instrumentos para navegar com segurança. Ao pousar, os aplausos ecoaram na cabine, reconhecendo o excelente trabalho do piloto.
+$
