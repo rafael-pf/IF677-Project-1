@@ -22,17 +22,62 @@
 int tabuleiro[NUM_THREADS][NUM_THREADS];
 pthread_mutex_t mutex;
 
+int cont = 0;
+
+int valida(int linha, int coluna, int posi, int posj){
+    int erro = 0;
+    for(int i = 0; i < NUM_THREADS; i++){
+        if(i != posi && tabuleiro[posi][posj] == tabuleiro[i][posj]){
+            erro++;
+        }
+    }
+
+    for(int j = 0; j < NUM_THREADS; j++){
+        if(j != posj && tabuleiro[posi][posj] == tabuleiro[posi][j]){
+            erro++;
+        }
+    }
+
+    for(int i = (linha - 1) * 3; i < 3 * linha; i++){
+        for(int j = (coluna - 1) * 3; j < 3 * coluna; j++){
+            if(i != posi && j != posj && tabuleiro[posi][posj] == tabuleiro[i][j]){
+                erro++;
+            }
+        }
+    }
+    // printf("%d\n", erro);
+    if(erro > 0){
+        return 0;
+    }
+    else{
+        return 1;
+    }
+
+    return 0;
+}
+
 void *checa(void *arg){
     int indice = *((int *) arg);
-    
-    pthread_mutex_lock(&mutex);
-    for(int i = (indice - 1) * 3; i < 3 * indice; i++){
-        for(int j = (indice - 1) * 3; j < 3 * indice; j++){
-            printf("%d ", tabuleiro[i][j]);
-        }
-        printf("\n");
+    int linha, coluna = (indice % 3) + 1;
+
+    if(indice <= 3){
+        linha = 1;
     }
-    pthread_mutex_unlock(&mutex);
+    else if(indice > 3  && indice <= 6){
+        linha = 2;
+    }
+    else{
+        linha = 3;
+    }
+    
+    //printf("LINHA %d DE QUADRADOS:\n", linha);
+    for(int i = (linha - 1) * 3; i < 3 * linha; i++){
+        for(int j = (coluna - 1) * 3; j < 3 * coluna; j++){
+            pthread_mutex_lock(&mutex);
+            cont += valida(linha, coluna , i, j);
+            pthread_mutex_unlock(&mutex);
+        }
+    }
 }
 
 int main(void){
@@ -62,6 +107,12 @@ int main(void){
         pthread_join(threads[i], NULL);
     }
 
+    if(cont == 81){
+        printf("O sudoku é válido\n");
+    }
+    else{
+        printf("O sudoku é inválido\n");
+    }
 
     pthread_exit(NULL);
     pthread_mutex_destroy(&mutex);
