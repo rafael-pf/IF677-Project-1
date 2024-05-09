@@ -9,7 +9,7 @@ correspondência.
 #include <string.h>
 
 #define NUM_THREADS 2 //mesmo número de textos
-#define NUM_LETRAS 100000
+#define NUM_LETRAS 100000 //numero maximo de caracteres que podem ser obtidos do arquivo
 
 char nomes_arquivos[NUM_THREADS][501] = {{"texto1.txt"}, {"texto2.txt"}}; //vetor de palavras pra armazenar o nome dos arquivos de teste
 int qtd_palavras = 0;
@@ -17,30 +17,7 @@ char *palavra = "piloto"; //palavra que quero achar
 
 pthread_mutex_t mutex;
 
-void *procuraTexto(void *arg){
-    
-    char tempTexto[NUM_LETRAS];
-
-    strcpy(tempTexto, ((char *) arg)); //passando o texto da thread atual para a variavel tempTexto
-
-    int acertos = 0; //quantidade de letras certas da palavra procurada
-    
-    for(int i = 0; i < strlen(tempTexto); i++){
-        if(tempTexto[i] == palavra[acertos]){
-            acertos++;
-        }
-        else{
-            acertos = 0;
-        }
-        if(acertos == strlen(palavra)){
-            pthread_mutex_lock(&mutex); //trava o mutex pra impedir a condição de corrida entre as threads
-            qtd_palavras++; //aumenta contador de achar a palavra
-            pthread_mutex_unlock(&mutex); //destrava o mutex
-        }
-    }
-}
-
-
+void *procuraTexto(void *arg);
 
 int main(void){
 
@@ -85,4 +62,27 @@ int main(void){
     pthread_mutex_destroy(&mutex); //destruindo o mutex que já foi utilizado
 
     return 0;
+}
+
+void *procuraTexto(void *arg){
+    
+    char tempTexto[NUM_LETRAS];
+
+    strcpy(tempTexto, ((char *) arg)); //passando o texto da thread atual para a variavel tempTexto
+
+    int acertos = 0; //quantidade de letras certas da palavra procurada
+    
+    for(int i = 0; i < strlen(tempTexto); i++){
+        if(tempTexto[i] == palavra[acertos]){
+            acertos++;
+        }
+        else{
+            acertos = 0;
+        }
+        if(acertos == strlen(palavra)){
+            pthread_mutex_lock(&mutex); //trava o mutex pra impedir a condição de corrida entre as threads
+            qtd_palavras++; //aumenta contador de achar a palavra
+            pthread_mutex_unlock(&mutex); //destrava o mutex
+        }
+    }
 }
