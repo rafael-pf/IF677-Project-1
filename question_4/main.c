@@ -15,6 +15,8 @@ A resolução foi feita pensando em atribuir o papel de cada thread checar se se
 Cada número no centro representa o id da thread que cuida desse quadrado.
 */
 
+#define _XOPEN_SOURCE 600
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,6 +26,7 @@ Cada número no centro representa o id da thread que cuida desse quadrado.
 
 int tabuleiro[NUM_THREADS][NUM_THREADS]; //Criando o tabuleiro
 pthread_mutex_t mutex;
+pthread_barrier_t barreira;
 
 int cont = 0; //contador que checa a quantidade de números que estão inseridos de forma correta
 
@@ -82,11 +85,13 @@ void *checa(void *arg){ //essa função percorre cada um dos números do quadrad
             }
         }
     }
+    pthread_barrier_wait(&barreira);
 }
 
 int main(void){
     
     pthread_mutex_init(&mutex, NULL);
+    pthread_barrier_init(&barreira, NULL, NUM_THREADS);
 
     for(int i = 0; i < NUM_THREADS; i++){ //recebendo a entrada
         for(int j = 0; j < NUM_THREADS; j++){
@@ -122,6 +127,7 @@ int main(void){
     //destruindo mutex e dando exit
     pthread_exit(NULL);
     pthread_mutex_destroy(&mutex);
+    pthread_barrier_destroy(&barreira);
 
     return 0;
 }
