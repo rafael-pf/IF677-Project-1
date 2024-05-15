@@ -12,6 +12,9 @@
 pthread_barrier_t barreira;
 pthread_mutex_t mutex;
 
+int num = COL / NUM_THREADS; //quantidade de variáveis por thread
+int resto = COL / NUM_THREADS;
+
 int coef[LIN][COL] = {{2,1}, {5, 7}}; //matriz de coeficicientes do sistema
 int res[LIN] = {11, 13}; //vetor de resultados do sistema
 float var[LIN] = {1, 1}; //vetor de variáveis
@@ -22,33 +25,36 @@ float var[LIN] = {1, 1}; //vetor de variáveis
     {5x1 + 7x2 = 13
 */
 
-int p = 5; //controla a aproximação do algoritmo
+int p = 30; //controla a aproximação do algoritmo
 
-void *cria(void *arg){ //função que calcula as variáveis
+//função que calcula as variáveis
+void *cria(void *arg){ 
 
     int id = *((int *) arg); //pegando id
-
-    int k = 0; //k da questao
-    
-    while(k < p){
-
-        //calculo do somatório
-        float sum = 0; 
-        for(int j = 0; j < NUM_THREADS; j++){
-            if(id != j){
-                sum += coef[id][j] * var[j];
-            }
-            pthread_barrier_wait(&barreira); //esperando as threads sincronizarem para impedir que uma passe da outra no loop
-        }
-
-        //lidando com a região crítica (variável global)
-        pthread_mutex_lock(&mutex);
-        var[id] = (1.0 / coef[id][id]) * (res[id] - sum);
-        pthread_mutex_unlock(&mutex);
-        k++;
+    for(int i = 0; i < num; i++){
+        id += i * num;
+        int k = 0; //k da questao
         
-        //esperando as threads calcularem xi 
-        pthread_barrier_wait(&barreira); // ÈH O BRUNAOO
+        while(k < p){
+
+            //calculo do somatório
+            float sum = 0; 
+            for(int j = 0; j < NUM_THREADS; j++){
+                if(id != j){
+                    sum += coef[id][j] * var[j];
+                }
+                pthread_barrier_wait(&barreira); //esperando as threads sincronizarem para impedir que uma passe da outra no loop
+            }
+
+            //lidando com a região crítica (variável global)
+            pthread_mutex_lock(&mutex);
+            var[id] = (1.0 / coef[id][id]) * (res[id] - sum);
+            pthread_mutex_unlock(&mutex);
+            k++;
+            
+            //esperando as threads calcularem xi 
+            pthread_barrier_wait(&barreira); // ÈH O BRUNAOO
+        }
     }
 }
 
