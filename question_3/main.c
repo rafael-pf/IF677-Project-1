@@ -63,10 +63,15 @@ int main() {
     return 0;
 }
 
-
 /*
     ideia: clientes fazem requisições para o banco,
     as requisições entram numa queue,
     banco usa queue para se guiar,
     duvida: como usar mutex para isso
+
+    como usar mutex: variavel de condição,
+    enquanto o banco estiver resolvendo uma req,
+    trava as outras threads (leitura do arquivo
+    e requisição ao banco)
+
 */
