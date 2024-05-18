@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include "queue.h"
 #define NUM_THREADS 4  // 3 clientes + banco
 
 typedef struct {
@@ -32,7 +33,6 @@ typedef struct {
 } InputAcesso; // sera passado como argumento para a funcao, contem a conta do usuario e o arquivo com as operações a serem realizadas por ele
 
 char arquivos[NUM_THREADS - 1][20] = { {"cliente1.txt"}, {"cliente2.txt"}, {"cliente3.txt"} }; // nome dos arquivos (qtd de arquivos = qtd de acessos simultaneos)
-
 
 // operações disponiveis no banco
 int SACAR() {}
@@ -123,6 +123,7 @@ int main() {
     }
 
     pthread_exit(NULL);
+    free(acessos);
 
     return 0;
 }
