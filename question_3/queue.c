@@ -60,4 +60,5 @@ void clear(Queue* q) {
     for (int i = 0; i < q->size; i++) {
         dequeue(q);
     }
+    free(q);
 }
