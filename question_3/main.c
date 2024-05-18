@@ -113,7 +113,6 @@ void* ACESSO_AO_BANCO(void* acesso) {
 
             break;
         default:
-            printf("oi\n");
             break;
         }
     }
