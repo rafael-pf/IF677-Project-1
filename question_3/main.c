@@ -93,13 +93,7 @@ void* ACESSO_AO_BANCO(void* acesso) {
             printf("Cliente %d pediu pra depositar %d\n", idConta, qtd);
 
             pthread_mutex_lock(&mutex);
-
-            //Requisicao req = {idConta, "DEPOSITAR", qtd};
-            //enqueue(filaRequisicoes, req);
-
             enqueue(filaRequisicoes, ((Requisicao){.idConta = idConta, .pedido = "DEPOSITAR", .valor = qtd}));
-
-
             pthread_mutex_unlock(&mutex);
 
             break;
@@ -125,14 +119,14 @@ void* ACESSO_AO_BANCO(void* acesso) {
 // funcao da thread do banco
 void* BANCO(void* arg) {
     pthread_barrier_wait(&barrier);
-    
-    while (filaRequisicoes->size > 0) {
-        Requisicao req = filaRequisicoes->front->requisicao;
 
+    while (filaRequisicoes->size > 0) {
+        Requisicao req = filaRequisicoes->front->next->requisicao;
         switch (req.pedido[0])
         {
         case 'C':
-            for (int i = 0; i < NUM_THREADS; i++) {
+        
+            for (int i = 0; i < NUM_THREADS-1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = CONSULTAR(acessos[i].conta);
                     printf("O saldo da conta %d eh: %d\n", req.idConta, resposta);
@@ -141,7 +135,7 @@ void* BANCO(void* arg) {
             break;
 
         case 'D':
-            for (int i = 0; i < NUM_THREADS; i++) {
+            for (int i = 0; i < NUM_THREADS-1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = DEPOSITAR(req.valor, &(acessos[i].conta));
                     printf("%d depositado com sucesso! O novo saldo da conta %d eh: %d\n", req.valor, req.idConta, resposta);
@@ -150,7 +144,7 @@ void* BANCO(void* arg) {
             break;
 
         case 'S':
-            for (int i = 0; i < NUM_THREADS; i++) {
+            for (int i = 0; i < NUM_THREADS-1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = SACAR(req.valor, &(acessos[i].conta));
                     if (resposta == -1) {
