@@ -1,22 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-typedef struct {
-    int idConta;
-    char pedido[30];
-    int valor;
-} Requisicao;
-
-typedef struct node {
-    Requisicao requisicao;
-    struct node* next;
-} Node;
-
-typedef struct {
-    int size;
-    Node* rear;
-    Node* front;
-}Queue;
+#include "queue.h"
 
 Node* create_empty_node(Node* next) {
     Node* n = (Node *) malloc(sizeof(Node));
