@@ -45,7 +45,7 @@ void enqueue(Queue* q, Requisicao req) {
 }
 
 void dequeue(Queue* q) {
-    if (q->size) {
+    if (q->size != 0) {
         Node* tmp = q->front->next;
         q->front->next = q->front->next->next;
         if (q->front->next == NULL) {

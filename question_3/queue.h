@@ -1,16 +1,30 @@
 #ifndef _QUEUE_H
 #define _QUEUE_H
 
-typedef struct queue Queue;
-typedef struct requisicao Requisicao;
+typedef struct {
+    int idConta;
+    char pedido[20];
+    int valor;
+} Requisicao;
 
-/*cria a fila de requisicoes a serem resolvidas pelo banco*/
+typedef struct node {
+    Requisicao requisicao;
+    struct node* next;
+} Node;
+
+typedef struct {
+    int size;
+    Node* rear;
+    Node* front;
+}Queue;
+
+/*Cria a fila de requisições a serem resolvidas pelo banco.*/
 Queue* create_queue();
-/*insere uma requisicao no final da fila*/
+/*Insere uma requisição no final da fila.*/
 void enqueue(Queue* q, Requisicao req);
-/*retira a primeira requisicao da fila*/
+/*Retira a primeira requisição da fila.*/
 void dequeue(Queue* q);
-/*limpa toda a fila*/
+/*Limpa toda a fila.*/
 void clear(Queue* q);
 
 #endif

@@ -15,29 +15,58 @@
 #include <pthread.h>
 #include "queue.h"
 #define NUM_THREADS 4  // 3 clientes + banco
+#define _XOPEN_SOURCE 600 
 
 typedef struct {
     int id;
     int saldo;
 } Conta; // cada conta possui indentificador e saldo
 
-typedef struct {
-    int idConta;
-    char* pedido;
-    int valor;
-} Requisicao; // informacoes da requisicao atual a ser resolvida pelo banco
+// typedef struct {
+//     int idConta;
+//     char* pedido;
+//     int valor;
+// } Requisicao; // informacoes da requisicao atual a ser resolvida pelo banco
 
 typedef struct {
     Conta conta;
     char* arquivo;
 } InputAcesso; // sera passado como argumento para a funcao, contem a conta do usuario e o arquivo com as operações a serem realizadas por ele
 
+// typedef struct node {
+//     Requisicao requisicao;
+//     struct node* next;
+// } Node;
+
+// typedef struct {
+//     int size;
+//     Node* rear;
+//     Node* front;
+// }Queue;
+
 char arquivos[NUM_THREADS - 1][20] = { {"cliente1.txt"}, {"cliente2.txt"}, {"cliente3.txt"} }; // nome dos arquivos (qtd de arquivos = qtd de acessos simultaneos)
+InputAcesso acessos[NUM_THREADS - 1];
+Queue* filaRequisicoes; // fila de requisicoes
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para impedir concorrencia na manipulação da fila
+pthread_barrier_t barrier; // barreira para inicializar a atuação do banco 
 
 // operações disponiveis no banco
-int SACAR() {}
-int DEPOSITAR() {}
-int CONSULTAR() {}
+int SACAR(int valor, Conta* conta) {
+    if (conta->saldo - valor < 0) {
+        return -1;
+    }
+    conta->saldo -= valor;
+    return conta->saldo;
+}
+
+int DEPOSITAR(int valor, Conta* conta) {
+    conta->saldo += valor;
+    return conta->saldo;
+}
+
+int CONSULTAR(Conta conta) {
+    return conta.saldo;
+}
 
 // funcao das thread de clientes
 void* ACESSO_AO_BANCO(void* acesso) {
@@ -69,14 +98,37 @@ void* ACESSO_AO_BANCO(void* acesso) {
         switch (comando[0]) {
         case 'C':
             printf("Cliente %d pediu pra consultar\n", idConta);
+
+            pthread_mutex_lock(&mutex);
+            // enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "CONSULTAR", .valor = (-1)}));
+            pthread_mutex_unlock(&mutex);
+
             break;
         case 'D':
             qtd = atoi(strtok(NULL, "\n"));
             printf("Cliente %d pediu pra depositar %d\n", idConta, qtd);
+
+            pthread_mutex_lock(&mutex);
+
+            Requisicao req;
+
+            req.idConta = idConta;
+            strcpy(req.pedido, "DEPOSITAR");
+            req.valor = qtd;
+
+            enqueue(filaRequisicoes, req);
+
+            pthread_mutex_unlock(&mutex);
+
             break;
         case 'S':
             qtd = atoi(strtok(NULL, "\n"));
             printf("Cliente %d pediu pra sacar %d\n", idConta, qtd);
+
+            pthread_mutex_lock(&mutex);
+            // enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "SACAR", .valor = (qtd)}));
+            pthread_mutex_unlock(&mutex);
+
             break;
         default:
             break;
@@ -84,21 +136,76 @@ void* ACESSO_AO_BANCO(void* acesso) {
     }
 
     fclose(arq);
+    pthread_barrier_wait(&barrier);
+    pthread_exit(NULL);
 }
 
 // funcao da thread do banco
-void* BANCO() {}
+void* BANCO(void* arg) {
+    pthread_barrier_wait(&barrier);
+
+    while (filaRequisicoes->size > 0) {
+        Requisicao req = filaRequisicoes->front->requisicao;
+
+        switch (req.pedido[0])
+        {
+        case 'C':
+            for (int i = 0; i < NUM_THREADS; i++) {
+                if (acessos[i].conta.id == req.idConta) {
+                    int resposta = CONSULTAR(acessos[i].conta);
+                    printf("O saldo da conta %d eh: %d\n", req.idConta, resposta);
+                }
+            }
+            break;
+
+        case 'D':
+            for (int i = 0; i < NUM_THREADS; i++) {
+                if (acessos[i].conta.id == req.idConta) {
+                    int resposta = DEPOSITAR(req.valor, &(acessos[i].conta));
+                    printf("%d depositado com sucesso! O novo saldo da conta %d eh: %d\n", req.valor, req.idConta, resposta);
+                }
+            }
+            break;
+
+        case 'S':
+            for (int i = 0; i < NUM_THREADS; i++) {
+                if (acessos[i].conta.id == req.idConta) {
+                    int resposta = SACAR(req.valor, &(acessos[i].conta));
+                    if (resposta == -1) {
+                        printf("Nao foi possível sacar %d da conta %d\n", req.valor, req.idConta);
+                    }
+                }
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        pthread_mutex_lock(&mutex);
+        dequeue(filaRequisicoes);
+        pthread_mutex_unlock(&mutex);
+
+    }
+
+
+    pthread_exit(NULL);
+}
 
 int main() {
     pthread_t threads[NUM_THREADS];
-    InputAcesso* acessos;
-
-    acessos = malloc((NUM_THREADS - 1) * sizeof(InputAcesso));
+    pthread_barrier_init(&barrier, NULL, NUM_THREADS);
+    filaRequisicoes = create_queue();
 
     for (int i = 0; i < NUM_THREADS; i++) {
         // primeira thread é a do banco, as outras sao dos clientes
         if (!i) {
-
+            // acessos[i].conta.id = -1;
+            // int rc = pthread_create(&(threads[i]), NULL, BANCO, NULL);
+            // if (rc) {
+            //     printf("falha na criacao das threads\n");
+            //     exit(-1);
+            // }
         }
         else {
             acessos[i].arquivo = arquivos[i - 1];
@@ -123,7 +230,7 @@ int main() {
     }
 
     pthread_exit(NULL);
-    free(acessos);
+    pthread_barrier_destroy(&barrier);
 
     return 0;
 }
