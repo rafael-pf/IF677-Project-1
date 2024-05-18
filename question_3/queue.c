@@ -3,7 +3,7 @@
 
 typedef struct {
     int idConta;
-    char* pedido;
+    char pedido[20];
     int valor;
 } Requisicao;
 
@@ -19,27 +19,46 @@ typedef struct {
 }Queue;
 
 Node* create_empty_node(Node* next) {
-    Node* n = malloc(sizeof(Node));
+    Node* n = (Node*)malloc(sizeof(Node));
+    if (n == NULL) {
+        printf("Erro de alocacao de memoria!\n");
+        exit(1);
+    }
     n->next = next;
     return n;
 }
 
 Node* create_node(Requisicao req, Node* next) {
-    Node* n = malloc(sizeof(Node));
+    Node* n = (Node*)malloc(sizeof(Node));
+    if (n == NULL) {
+        printf("Erro de alocacao de memoria!\n");
+        exit(1);
+    }
     n->requisicao = req;
     n->next = next;
     return n;
 }
 
 Queue* create_queue() {
-    Queue* q = malloc(sizeof(Queue));
-    q->front = q->rear = create_empty_node(NULL);
+    Queue* q = (Queue*)malloc(sizeof(Queue));
+    if (q == NULL) {
+        printf("Erro de alocacao de memoria!\n");
+        exit(1);
+    }
+    Node* new_node = create_empty_node(NULL);
+    q->rear = new_node;
+    q->front = new_node;
     q->size = 0;
     return q;
 }
 
 void enqueue(Queue* q, Requisicao req) {
-    q->rear->next = create_node(req, NULL);
+    if (q == NULL) {
+        printf("Fila nao incializada!\n");
+        exit(1);
+    }
+    Node* new_node = create_node(req, NULL);
+    q->rear->next = new_node;
     q->rear = q->rear->next;
     q->size++;
 }
@@ -57,8 +76,10 @@ void dequeue(Queue* q) {
 }
 
 void clear(Queue* q) {
-    for (int i = 0; i < q->size; i++) {
+    while (q->size)
+    {
         dequeue(q);
     }
+
     free(q);
 }

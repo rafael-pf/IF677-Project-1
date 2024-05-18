@@ -22,27 +22,10 @@ typedef struct {
     int saldo;
 } Conta; // cada conta possui indentificador e saldo
 
-// typedef struct {
-//     int idConta;
-//     char* pedido;
-//     int valor;
-// } Requisicao; // informacoes da requisicao atual a ser resolvida pelo banco
-
 typedef struct {
     Conta conta;
     char* arquivo;
 } InputAcesso; // sera passado como argumento para a funcao, contem a conta do usuario e o arquivo com as operações a serem realizadas por ele
-
-// typedef struct node {
-//     Requisicao requisicao;
-//     struct node* next;
-// } Node;
-
-// typedef struct {
-//     int size;
-//     Node* rear;
-//     Node* front;
-// }Queue;
 
 char arquivos[NUM_THREADS - 1][20] = { {"cliente1.txt"}, {"cliente2.txt"}, {"cliente3.txt"} }; // nome dos arquivos (qtd de arquivos = qtd de acessos simultaneos)
 InputAcesso acessos[NUM_THREADS - 1];
@@ -116,7 +99,7 @@ void* ACESSO_AO_BANCO(void* acesso) {
             strcpy(req.pedido, "DEPOSITAR");
             req.valor = qtd;
 
-            enqueue(filaRequisicoes, req);
+            // enqueue(filaRequisicoes, req);
 
             pthread_mutex_unlock(&mutex);
 
@@ -173,6 +156,9 @@ void* BANCO(void* arg) {
                     int resposta = SACAR(req.valor, &(acessos[i].conta));
                     if (resposta == -1) {
                         printf("Nao foi possível sacar %d da conta %d\n", req.valor, req.idConta);
+                    }
+                    else {
+                        printf("%d sacados com sucesso! o novo saldo da conta %d eh %d\n", req.valor, req.idConta, resposta);
                     }
                 }
             }
