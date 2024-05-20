@@ -8,6 +8,7 @@
     de corrida.
 
 */
+#define _XOPEN_SOURCE 600 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +16,6 @@
 #include <pthread.h>
 #include "queue.h"
 #define NUM_THREADS 4  // 3 clientes + banco
-#define _XOPEN_SOURCE 600 
 
 typedef struct {
     int id;
@@ -24,11 +24,12 @@ typedef struct {
 
 typedef struct {
     Conta conta;
-    char* arquivo;
+    char arquivo[30];
 } InputAcesso; // sera passado como argumento para a funcao, contem a conta do usuario e o arquivo com as operações a serem realizadas por ele
 
 char arquivos[NUM_THREADS - 1][20] = { {"cliente1.txt"}, {"cliente2.txt"}, {"cliente3.txt"} }; // nome dos arquivos (qtd de arquivos = qtd de acessos simultaneos)
-InputAcesso acessos[NUM_THREADS - 1];
+int ids[NUM_THREADS - 1] = { 1,2,3 }; // ids das contas (altere conforme quiser, apenas estando atento á qtd de contas)
+InputAcesso acessos[NUM_THREADS - 1]; // conta + input de requisiçoes
 Queue* filaRequisicoes; // fila de requisicoes
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para impedir concorrencia na manipulação da fila
 pthread_barrier_t barrier; // barreira para inicializar a atuação do banco 
@@ -71,45 +72,38 @@ void* ACESSO_AO_BANCO(void* acesso) {
     }
 
     // processamento dos comandos do arquivo
-    char texto[50] = {};
-    char* comando = NULL;
+    char texto[50];
+    char* comando;
     int qtd = 0;
 
     while (fscanf(arq, "%49[^,],\n", texto) == 1) {
         // processando cada linha do arquivo (<pedido> <valor?>,)
+
         comando = strtok(texto, " ");
         switch (comando[0]) {
         case 'C':
-            printf("Cliente %d pediu pra consultar\n", idConta);
+            printf("[CONTA %d] Solicitação de consulta\n", idConta);
 
             pthread_mutex_lock(&mutex);
-            // enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "CONSULTAR", .valor = (-1)}));
+            enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "CONSULTAR", .valor = (-1)}));
             pthread_mutex_unlock(&mutex);
 
             break;
         case 'D':
             qtd = atoi(strtok(NULL, "\n"));
-            printf("Cliente %d pediu pra depositar %d\n", idConta, qtd);
+            printf("[CONTA %d] Solicitação de depósito de %d reais\n", idConta, qtd);
 
             pthread_mutex_lock(&mutex);
-
-            Requisicao req;
-
-            req.idConta = idConta;
-            strcpy(req.pedido, "DEPOSITAR");
-            req.valor = qtd;
-
-            // enqueue(filaRequisicoes, req);
-
+            enqueue(filaRequisicoes, ((Requisicao){.idConta = idConta, .pedido = "DEPOSITAR", .valor = qtd}));
             pthread_mutex_unlock(&mutex);
 
             break;
         case 'S':
             qtd = atoi(strtok(NULL, "\n"));
-            printf("Cliente %d pediu pra sacar %d\n", idConta, qtd);
+            printf("[CONTA %d] Solicitação de saque de %d reais\n", idConta, qtd);
 
             pthread_mutex_lock(&mutex);
-            // enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "SACAR", .valor = (qtd)}));
+            enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "SACAR", .valor = (qtd)}));
             pthread_mutex_unlock(&mutex);
 
             break;
@@ -128,37 +122,37 @@ void* BANCO(void* arg) {
     pthread_barrier_wait(&barrier);
 
     while (filaRequisicoes->size > 0) {
-        Requisicao req = filaRequisicoes->front->requisicao;
-
+        Requisicao req = filaRequisicoes->front->next->requisicao;
         switch (req.pedido[0])
         {
         case 'C':
-            for (int i = 0; i < NUM_THREADS; i++) {
+
+            for (int i = 0; i < NUM_THREADS - 1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = CONSULTAR(acessos[i].conta);
-                    printf("O saldo da conta %d eh: %d\n", req.idConta, resposta);
+                    printf("[BANCO] O saldo da conta %d eh: %d\n", req.idConta, resposta);
                 }
             }
             break;
 
         case 'D':
-            for (int i = 0; i < NUM_THREADS; i++) {
+            for (int i = 0; i < NUM_THREADS - 1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = DEPOSITAR(req.valor, &(acessos[i].conta));
-                    printf("%d depositado com sucesso! O novo saldo da conta %d eh: %d\n", req.valor, req.idConta, resposta);
+                    printf("[BANCO] %d depositado com sucesso! O novo saldo da conta %d eh: %d\n", req.valor, req.idConta, resposta);
                 }
             }
             break;
 
         case 'S':
-            for (int i = 0; i < NUM_THREADS; i++) {
+            for (int i = 0; i < NUM_THREADS - 1; i++) {
                 if (acessos[i].conta.id == req.idConta) {
                     int resposta = SACAR(req.valor, &(acessos[i].conta));
                     if (resposta == -1) {
-                        printf("Nao foi possível sacar %d da conta %d\n", req.valor, req.idConta);
+                        printf("[BANCO] Nao foi possível sacar %d da conta %d\n", req.valor, req.idConta);
                     }
                     else {
-                        printf("%d sacados com sucesso! o novo saldo da conta %d eh %d\n", req.valor, req.idConta, resposta);
+                        printf("[BANCO] %d sacados com sucesso! O novo saldo da conta %d eh %d\n", req.valor, req.idConta, resposta);
                     }
                 }
             }
@@ -186,19 +180,19 @@ int main() {
     for (int i = 0; i < NUM_THREADS; i++) {
         // primeira thread é a do banco, as outras sao dos clientes
         if (!i) {
-            // acessos[i].conta.id = -1;
-            // int rc = pthread_create(&(threads[i]), NULL, BANCO, NULL);
-            // if (rc) {
-            //     printf("falha na criacao das threads\n");
-            //     exit(-1);
-            // }
+            //acessos[i].conta.id = -1;
+            int rc = pthread_create(&(threads[i]), NULL, BANCO, NULL);
+            if (rc) {
+                printf("falha na criacao das threads\n");
+                exit(-1);
+            }
         }
         else {
-            acessos[i].arquivo = arquivos[i - 1];
-            acessos[i].conta.id = i;
-            acessos[i].conta.saldo = 0;
+            strcpy(acessos[i - 1].arquivo, arquivos[i - 1]);
+            acessos[i - 1].conta.id = ids[i - 1];
+            acessos[i - 1].conta.saldo = 0;
 
-            int rc = pthread_create(&(threads[i]), NULL, ACESSO_AO_BANCO, (void*)&(acessos[i])); //criando threads
+            int rc = pthread_create(&(threads[i]), NULL, ACESSO_AO_BANCO, (void*)&(acessos[i - 1])); //criando threads
             if (rc) {
                 printf("falha na criacao das threads\n");
                 exit(-1);
@@ -207,12 +201,7 @@ int main() {
     }
 
     for (int i = 0; i < NUM_THREADS; i++) {
-        if (!i) {
-
-        }
-        else {
-            pthread_join(threads[i], NULL);
-        }
+        pthread_join(threads[i], NULL);
     }
 
     pthread_exit(NULL);
@@ -220,16 +209,3 @@ int main() {
 
     return 0;
 }
-
-/*
-    ideia: clientes fazem requisições para o banco,
-    as requisições entram numa queue,
-    banco usa queue para se guiar,
-    duvida: como usar mutex para isso
-
-    como usar mutex: variavel de condição,
-    enquanto o banco estiver resolvendo uma req,
-    trava as outras threads (leitura do arquivo
-    e requisição ao banco)
-
-*/

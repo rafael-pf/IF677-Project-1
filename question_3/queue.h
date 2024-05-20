@@ -3,7 +3,7 @@
 
 typedef struct {
     int idConta;
-    char pedido[20];
+    char pedido[30];
     int valor;
 } Requisicao;
 
