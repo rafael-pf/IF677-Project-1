@@ -25,46 +25,9 @@ typedef struct{
 }Conglomerado;
 
 
-/*
-    O sistema usado de exemplo seria:
-    {2x1 + x2 = 11
-    {5x1 + 7x2 = 13
-*/
-
 int p = 30; //controla a aproximação do algoritmo
 
 //função que calcula as variáveis
-/*
-void *cria(void *arg){ 
-
-    int id = *((int *) arg); //pegando id
-    for(int i = 0; i < num; i++){
-        id += i * num;
-        printf("id: %d\n", id);
-        int k = 0; //k da questao
-        while(k < p){
-
-            //calculo do somatório
-            float sum = 0; 
-            for(int j = 0; j < NUM_THREADS; j++){
-                if(id != j){
-                    sum += coef[id][j] * var[j];
-                }
-            }
-
-            pthread_barrier_wait(&barreira); //esperando as threads sincronizarem para impedir que uma passe da outra no loop
-            //lidando com a região crítica (variável global)
-            pthread_mutex_lock(&mutex);
-            var[id] = (1.0 / coef[id][id]) * (res[id] - sum);
-            pthread_mutex_unlock(&mutex);
-            k++;
-            
-            //esperando as threads calcularem xi 
-            pthread_barrier_wait(&barreira); // ÈH O BRUNAOO
-        }
-    }
-}
-*/
 
 void *cria2(void * arg){
     Conglomerado *ptr = (Conglomerado *) arg;//vet é um vetor com os indices que a thread vai ter q lidar
@@ -110,17 +73,6 @@ int main(void){
 
     pthread_t threads[NUM_THREADS];
     int *taskID[NUM_THREADS];
-    /*
-    for(int i = 0; i < NUM_THREADS; i++){
-        taskID[i] = (int *) malloc(sizeof(int));
-        *taskID[i] = i;
-        int rc = pthread_create(&(threads[i]), NULL, cria, (void*) taskID[i]);
-        if(rc){
-            printf("erro na criacao de threads\n");
-            exit(-1);
-        }
-    }
-    */
 
     int passo=COL/NUM_THREADS, lastIndex=0;
     for(int i=0;i<NUM_THREADS;i++){
