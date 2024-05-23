@@ -21,7 +21,8 @@ typedef struct {
 }Queue;
 
 
-
+static Node* create_empty_node(Node* next);
+static Node* create_node(Funcao req, Node* next);
 /*Cria a fila de requisições a serem resolvidas pelo banco.*/
 Queue* create_queue();
 /*Insere uma requisição no final da fila.*/

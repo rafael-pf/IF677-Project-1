@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include "queue.h"
 
-Node* create_empty_node(Node* next) {
+static Node* create_empty_node(Node* next) {
     Node* n = (Node*)malloc(sizeof(Node));
     n->next = next;
     return n;
 }
 
-Node* create_node(Funcao req, Node* next) {
+static Node* create_node(Funcao req, Node* next) {
     Node* n = (Node*)malloc(sizeof(Node));
     n->funcao = req;
     n->next = next;
