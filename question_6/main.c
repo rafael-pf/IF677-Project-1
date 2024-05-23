@@ -8,8 +8,8 @@
 #define NUM_THREADS 4
 #define NUM_OPERATIONS 100
 
-int a = 3;
-int b = 2;
+int a = 4;
+int b = 3;
 
 pthread_mutex_t mymutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
@@ -17,59 +17,35 @@ int nucleos_trabalhando = 0;
 
 void segura() {
     for (int i = 0; i < 10000000; i++) {}
-    if (nucleos_trabalhando > 4) printf("\tDeu merda\n");
+    if (nucleos_trabalhando > NUM_THREADS) printf("\tDeu merda\n");
 }
 
 void* somar(void* arg) {
     printf("soma: %d\n", a + b);
 
     segura();
-
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
 void* subtrair(void* arg) {
     printf("subtracao: %d\n", a - b);
 
     segura();
-
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
 void* multiplicar(void* arg) {
     printf("produto: %d\n", a * b);
 
     segura();
-
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
 void* dividir(void* arg) {
     printf("quociente: %d\n", a / b);
 
     segura();
-
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
 void carregaFuncoes(Funcao* array, int size) {
@@ -95,19 +71,33 @@ void carregaFila(Funcao* array, int size, Queue* queue) {
     }
 }
 
+void *nucleo(void *arg){
+
+    Funcao *f = (Funcao *) arg;
+
+    f->ptr(f->arg);
+
+    pthread_mutex_lock(&mymutex);
+    nucleos_trabalhando--;
+    pthread_cond_signal(&full);
+    pthread_mutex_unlock(&mymutex);
+
+    pthread_exit(NULL);
+}
+
 void* escalonador(void* arg) {
 
     Queue* lista_pronto = (Queue*)arg;
-    int size = lista_pronto->size;
-    pthread_t threads[size];
+    //int size = lista_pronto->size;
+    pthread_t threads;
     int i = 0;
 
-    while (lista_pronto->size) {
+    while (lista_pronto->size > 0) {
         Funcao f = lista_pronto->front->next->funcao;
         dequeue(lista_pronto);
 
         // cria thread
-        int rc = pthread_create(&(threads[i]), NULL, f.ptr, NULL);
+        int rc = pthread_create(&(threads), NULL, nucleo, (void *) &f);
         if (rc) {
             printf("erro na execucao de threads\n");
             exit(-1);
@@ -130,7 +120,7 @@ int main() {
 
     Queue* queue = create_queue();
     pthread_t thread_escalonador;
-    unsigned int size = 4;
+    unsigned int size = NUM_THREADS;
     Funcao funcoes[size];
 
     carregaFuncoes(funcoes, size);

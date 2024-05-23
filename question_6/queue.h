@@ -5,6 +5,7 @@ typedef void* (*Funcptr)(void*);
 
 typedef struct {
     Funcptr ptr;
+    void *arg;
     char nome[30];
 } Funcao;
 
