@@ -16,7 +16,7 @@ pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 int nucleos_trabalhando = 0;
 
 void segura() {
-    for (int i = 0; i < 10000000; i++) {}
+    for (int i = 0; i < 100000; i++) {}
     if (nucleos_trabalhando > 4) printf("\tDeu merda\n");
 }
 
@@ -90,7 +90,15 @@ void carregaFila(Funcao* array, int size, Queue* queue) {
     int index = rand() % size;
 
     for (int i = 0; i < NUM_OPERATIONS; i++) {
+        pthread_mutex_lock(&mymutex);
+
         enqueue(queue, array[index]);
+        pthread_cond_signal(&full);
+
+        pthread_mutex_unlock(&mymutex);
+
+        for (int j = 0; j < 100000; j++);
+
         index = rand() % size;
     }
 }
@@ -99,29 +107,33 @@ void* escalonador(void* arg) {
 
     Queue* lista_pronto = (Queue*)arg;
     int size = lista_pronto->size;
-    pthread_t threads[size];
-    int i = 0;
+    pthread_t threads;
 
-    while (lista_pronto->size) {
+    while (1) {
+        pthread_mutex_lock(&mymutex);
         Funcao f = lista_pronto->front->next->funcao;
         dequeue(lista_pronto);
 
         // cria thread
-        int rc = pthread_create(&(threads[i]), NULL, f.ptr, NULL);
+        int rc = pthread_create(&(threads), NULL, f.ptr, NULL);
         if (rc) {
             printf("erro na execucao de threads\n");
             exit(-1);
         }
-        i++;
 
-        pthread_mutex_lock(&mymutex);
         nucleos_trabalhando++;
+        while (!lista_pronto->size) {
+            printf("escalonador dormindo, fila vazia.\n");
+            pthread_cond_wait(&full, &mymutex);
+        }
         while (nucleos_trabalhando == NUM_THREADS) {
-            printf("Tudo ocupado!!!!\n");
+            printf("escalonador dormindo, todos os nucleos ocupados.\n");
             pthread_cond_wait(&full, &mymutex);
         }
         pthread_mutex_unlock(&mymutex);
     }
+
+
 
     pthread_exit(NULL);
 }
@@ -135,13 +147,13 @@ int main() {
 
     carregaFuncoes(funcoes, size);
 
-    carregaFila(funcoes, size, queue);
-
     int rc = pthread_create(&thread_escalonador, NULL, escalonador, (void*)queue);
     if (rc) {
         printf("erro na execucao de threads\n");
         exit(-1);
     }
+
+    carregaFila(funcoes, size, queue);
 
     pthread_join(thread_escalonador, NULL);
 
