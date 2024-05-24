@@ -5,55 +5,48 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#define NUM_THREADS 2
+#define NUM_THREADS 1
 #define LIN 3 //(numero de equaçoes)
 #define COL 3 //(numero de variaveis)
+#define p 30  //controla a aproximação do algoritmo
 
 pthread_barrier_t barreira;
 pthread_mutex_t mutex;
 
 int num = COL / NUM_THREADS; //quantidade de variáveis por thread
-int resto = COL % NUM_THREADS;
 
 int coef[LIN][COL] = { {-3, 1, 1}, {2, 5, 1}, {2, 3, 7} }; //matriz de coeficicientes do sistema
 int res[COL] = { 2, 5, -17 }; //vetor de resultados do sistema
-float var[COL] = { 1, 1, 1 }; //vetor de variáveis
+float var[p][COL]; //matriz de variáveis na 'p' interacao
 
-typedef struct {
+typedef struct { //struct que controla os indices que cada thread eh responsavel
     int* vet;
     int size;
 }Conglomerado;
 
-
-int p = 30; //controla a aproximação do algoritmo
-
 //função que calcula as variáveis
-
-void* cria2(void* arg) {
+void* cria(void* arg) {
     Conglomerado* ptr = (Conglomerado*)arg;//vet é um vetor com os indices que a thread vai ter q lidar
     int* vet = ptr->vet;
     int size = ptr->size;
     int k = 0;
-    while (k < p) {
-        for (int i = 0;i < size;i++) {
+    while (k < p) {//laço do k até p 
+        for (int i = 0;i < size;i++) {//laço para cada threads pecorrer seus respectivos indices sem avançar o k 
             int id = vet[i];
             //calculo do somatório
             float sum = 0;
             for (int j = 0; j < COL; j++) {
                 if (id != j) {
-                    sum += coef[id][j] * var[j];
+                    sum += coef[id][j] * var[k][j];
                 }
             }
 
-            //pthread_barrier_wait(&barreira); //esperando as threads sincronizarem para impedir que uma passe da outra no loop
             //lidando com a região crítica (variável global)
             pthread_mutex_lock(&mutex);
-            var[id] = (1.0 / coef[id][id]) * (res[id] - sum);
+            var[k + 1][id] = (1.0 / coef[id][id]) * (res[id] - sum);
             pthread_mutex_unlock(&mutex);
-
-            //esperando as threads calcularem xi 
         }
-        pthread_barrier_wait(&barreira); // ÈH O BRUNAOO
+        pthread_barrier_wait(&barreira); //esperando as threads sincronizarem para impedir que uma avançe o k antes das outras
         k++;
 
     }
@@ -63,7 +56,7 @@ void* cria2(void* arg) {
 
 int main(void) {
 
-    if (LIN < COL) {
+    if (LIN < COL) { //mais variaveis que equacoes
         printf("o sistema é indeterminado\n");
         exit(1);
     }
@@ -74,35 +67,37 @@ int main(void) {
     pthread_t threads[NUM_THREADS];
     int* taskID[NUM_THREADS];
 
-    int passo = COL / NUM_THREADS, lastIndex = 0;
+    for (int i = 0;i < COL;i++) { //setando xi(0) como 1
+        var[0][i] = 1;
+    }
+
+    int passo = num, lastIndex = 0;
     for (int i = 0;i < NUM_THREADS;i++) {
-        if (i == 0 && COL != (passo * NUM_THREADS)) {
-            int vetorMaior = (COL + passo) - (passo * NUM_THREADS);//acho q tá dando o valor errado
-            printf("odeio a tim %d\n", vetorMaior);
+        if (i == 0 && COL != (passo * NUM_THREADS)) {//caso a divisão de variaveis para as threads seja desigual, a thread 0 recebe os indices restantes
+            int vetorMaior = (COL + passo) - (passo * NUM_THREADS);//qtd de indices que a thread 0 vai receber
             taskID[i] = (int*)malloc(sizeof(int) * vetorMaior);
             for (int j = 0;j < vetorMaior;j++) {
                 taskID[i][j] = j;
             }
-            lastIndex = vetorMaior;
+            lastIndex = vetorMaior;//para que a contagem da divisão de variaveis continue igual para as outras threads
             Conglomerado* ptr = (Conglomerado*)malloc(sizeof(Conglomerado));
             ptr->size = vetorMaior;
             ptr->vet = taskID[i];
-            int rc = pthread_create(&(threads[i]), NULL, cria2, ((void*)ptr));
+            int rc = pthread_create(&(threads[i]), NULL, cria, ((void*)ptr));
             if (rc) {
                 printf("erro na criacao de threads\n");
                 exit(-1);
             }
         }
         else {
-            printf("odeio a claro\n");
             taskID[i] = (int*)malloc(sizeof(int) * passo);
-            for (int j = 0;j < passo && lastIndex < COL; j += 1, lastIndex += 1) {
+            for (int j = 0;j < passo && lastIndex < COL; j += 1, lastIndex += 1) {// verifica se j não passa do tamanho de passo e verifica se o lastIndex nao passa da ultima coluna
                 taskID[i][j] = lastIndex;
             }
             Conglomerado* ptr = (Conglomerado*)malloc(sizeof(Conglomerado));
             ptr->size = passo;
             ptr->vet = taskID[i];
-            int rc = pthread_create(&(threads[i]), NULL, cria2, ((void*)ptr));
+            int rc = pthread_create(&(threads[i]), NULL, cria, ((void*)ptr));
             if (rc) {
                 printf("erro na criacao de threads\n");
                 exit(-1);
@@ -120,7 +115,7 @@ int main(void) {
 
     //printando a solução do sistema
     for (int i = 0; i < COL; i++) {
-        printf("x%d = %f\n", i + 1, var[i]);
+        printf("x%d = %f\n", i + 1, var[p - 1][i]);
     }
 
     //destruindo os recursos

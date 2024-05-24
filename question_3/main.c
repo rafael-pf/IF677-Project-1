@@ -30,8 +30,8 @@ typedef struct {
 char arquivos[NUM_THREADS - 1][20] = { {"cliente1.txt"}, {"cliente2.txt"}, {"cliente3.txt"} }; // nome dos arquivos (qtd de arquivos = qtd de acessos simultaneos)
 int ids[NUM_THREADS - 1] = { 1,2,3 }; // ids das contas (altere conforme quiser, apenas estando atento á qtd de contas)
 InputAcesso acessos[NUM_THREADS - 1]; // conta + input de requisiçoes
-Queue* filaRequisicoes; // fila de requisicoes
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para impedir concorrencia na manipulação da fila
+Queue* filaRequisicoes; // fila de requisicoes a serem processadas pelo banco
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para manipulação da fila
 pthread_barrier_t barrier; // barreira para inicializar a atuação do banco 
 
 // operações disponiveis no banco
@@ -84,6 +84,7 @@ void* ACESSO_AO_BANCO(void* acesso) {
         case 'C':
             printf("[CONTA %d] Solicitação de consulta\n", idConta);
 
+            // trava o mutex e coloca a requisicao na fila
             pthread_mutex_lock(&mutex);
             enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "CONSULTAR", .valor = (-1)}));
             pthread_mutex_unlock(&mutex);
@@ -93,6 +94,7 @@ void* ACESSO_AO_BANCO(void* acesso) {
             qtd = atoi(strtok(NULL, "\n"));
             printf("[CONTA %d] Solicitação de depósito de %d reais\n", idConta, qtd);
 
+            // trava o mutex e coloca a requisicao na fila
             pthread_mutex_lock(&mutex);
             enqueue(filaRequisicoes, ((Requisicao){.idConta = idConta, .pedido = "DEPOSITAR", .valor = qtd}));
             pthread_mutex_unlock(&mutex);
@@ -102,6 +104,7 @@ void* ACESSO_AO_BANCO(void* acesso) {
             qtd = atoi(strtok(NULL, "\n"));
             printf("[CONTA %d] Solicitação de saque de %d reais\n", idConta, qtd);
 
+            // trava o mutex e coloca a requisicao na fila
             pthread_mutex_lock(&mutex);
             enqueue(filaRequisicoes, ((Requisicao){.idConta = (idConta), .pedido = "SACAR", .valor = (qtd)}));
             pthread_mutex_unlock(&mutex);
@@ -113,15 +116,16 @@ void* ACESSO_AO_BANCO(void* acesso) {
     }
 
     fclose(arq);
-    pthread_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier); //sincronizar as threads de acesso, para que thread banco inicie apenas quando elas terminarem
     pthread_exit(NULL);
 }
 
 // funcao da thread do banco
 void* BANCO(void* arg) {
-    pthread_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier); // iniciar resposta às requisições apenas quando os acessos todas estiverem na fila 
 
     while (filaRequisicoes->size > 0) {
+        // processo cada uma de acordo com seu nome (analisa-se primeiro char)
         Requisicao req = filaRequisicoes->front->next->requisicao;
         switch (req.pedido[0])
         {
@@ -162,6 +166,7 @@ void* BANCO(void* arg) {
             break;
         }
 
+        // depois de processar, locka o mutex e da dequeue na fila de requisiçoes
         pthread_mutex_lock(&mutex);
         dequeue(filaRequisicoes);
         pthread_mutex_unlock(&mutex);
@@ -174,13 +179,12 @@ void* BANCO(void* arg) {
 
 int main() {
     pthread_t threads[NUM_THREADS];
-    pthread_barrier_init(&barrier, NULL, NUM_THREADS);
-    filaRequisicoes = create_queue();
+    pthread_barrier_init(&barrier, NULL, NUM_THREADS); // barreira para controlar inicio da thread banco
+    filaRequisicoes = create_queue(); // inicializacao da fila de requisicoes
 
     for (int i = 0; i < NUM_THREADS; i++) {
         // primeira thread é a do banco, as outras sao dos clientes
         if (!i) {
-            //acessos[i].conta.id = -1;
             int rc = pthread_create(&(threads[i]), NULL, BANCO, NULL);
             if (rc) {
                 printf("falha na criacao das threads\n");
@@ -188,6 +192,7 @@ int main() {
             }
         }
         else {
+            // inicializa contas
             strcpy(acessos[i - 1].arquivo, arquivos[i - 1]);
             acessos[i - 1].conta.id = ids[i - 1];
             acessos[i - 1].conta.saldo = 0;
@@ -200,12 +205,14 @@ int main() {
         }
     }
 
+    // join em todas as threads
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
 
     pthread_exit(NULL);
     pthread_barrier_destroy(&barrier);
+    clear(filaRequisicoes);
 
     return 0;
 }
