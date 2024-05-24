@@ -86,6 +86,7 @@ void* checa(void* arg) { //essa função percorre cada um dos números do quadra
         }
     }
     pthread_barrier_wait(&barreira);
+    pthread_exit(NULL);
 }
 
 int main(void) {
@@ -124,6 +125,9 @@ int main(void) {
         printf("O sudoku é inválido\n");
     }
 
+    for(int i = 0; i < NUM_THREADS; i++){
+        free(thread_id[i]);
+    }
     //destruindo mutex e dando exit
     pthread_exit(NULL);
     pthread_mutex_destroy(&mutex);
