@@ -85,4 +85,5 @@ void *procuraTexto(void *arg){
             pthread_mutex_unlock(&mutex); //destrava o mutex
         }
     }
+    pthread_exit(NULL);
 }
