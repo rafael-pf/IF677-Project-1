@@ -17,6 +17,7 @@ int nucleos_trabalhando = 0;
 
 void segura() {
     for (int i = 0; i < 100000; i++) {}
+    printf("nucleos trabalhando: %d\n", nucleos_trabalhando);
     if (nucleos_trabalhando > 4) printf("\tDeu merda\n");
 }
 
