@@ -54,12 +54,7 @@ int valida(int linha, int coluna, int posi, int posj) {
         }
     }
 
-    if (erro > 0) { //se erro não for zero, há pelo menos um motivo pra o número não estar lá
-        return 0;
-    }
-    else {
-        return 1;
-    }
+    return !erro; //se erro não for zero, há pelo menos um motivo pra o número não estar lá
 }
 
 void* checa(void* arg) { //essa função percorre cada um dos números do quadrado da respectiva thread
@@ -125,7 +120,7 @@ int main(void) {
         printf("O sudoku é inválido\n");
     }
 
-    for(int i = 0; i < NUM_THREADS; i++){
+    for (int i = 0; i < NUM_THREADS; i++) {
         free(thread_id[i]);
     }
     //destruindo mutex e dando exit

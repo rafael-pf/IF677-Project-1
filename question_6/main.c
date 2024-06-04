@@ -1,35 +1,52 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <string.h>
 #include <time.h>
 #include "queue.h"
 
-#define NUM_THREADS 4
-#define NUM_OPERATIONS 100
+#define N 20
+#define NUM_FUNC 4
+#define BUFFER_SIZE 100
 
 int a = 3;
 int b = 2;
 
-pthread_mutex_t mymutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t full = PTHREAD_COND_INITIALIZER;
-int nucleos_trabalhando = 0;
+int* ocupado; // vetor de ocupacao dos nucleos
 
-void segura() {
-    for (int i = 0; i < 100000; i++) {}
-    printf("nucleos trabalhando: %d\n", nucleos_trabalhando);
-    if (nucleos_trabalhando > 4) printf("\tDeu merda\n");
+char nomes_funcao[NUM_FUNC][51] = { {"Somar"}, {"Subtrair"}, {"Multiplicar"}, {"Dividir"} }; // nomes das funcoes
+
+pthread_t escalonador; //consumidor
+pthread_t enfileirador; //produtor
+pthread_t nucleos[N]; // nucleos
+
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t pode_esvaziar = PTHREAD_COND_INITIALIZER; // condicao para esvaziar a fila
+pthread_cond_t pode_encher = PTHREAD_COND_INITIALIZER; // condicao para encher a fila
+
+Queue* lista_pronto; // fila de funcoes
+
+void ver_ocupacao() {
+    for (int i = 0; i < N; i++) {
+        printf("%d ", ocupado[i]);
+    }
+    printf("\n");
 }
 
 void* somar(void* arg) {
     printf("soma: %d\n", a + b);
+    int id = *((int*)arg);
 
-    segura();
+    // liberando o nucleo
+    pthread_mutex_lock(&mutex2);
+    ocupado[id] = 0;
+    // ver_ocupacao();
+    pthread_mutex_unlock(&mutex2);
 
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
+    free(arg);
 
     pthread_exit(NULL);
 }
@@ -37,12 +54,15 @@ void* somar(void* arg) {
 void* subtrair(void* arg) {
     printf("subtracao: %d\n", a - b);
 
-    segura();
+    int id = *((int*)arg);
 
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
+    // liberando o nucleo
+    pthread_mutex_lock(&mutex2);
+    ocupado[id] = 0;
+    // ver_ocupacao();
+    pthread_mutex_unlock(&mutex2);
+
+    free(arg);
 
     pthread_exit(NULL);
 }
@@ -50,12 +70,15 @@ void* subtrair(void* arg) {
 void* multiplicar(void* arg) {
     printf("produto: %d\n", a * b);
 
-    segura();
+    int id = *((int*)arg);
 
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
+    // liberando o nucleo
+    pthread_mutex_lock(&mutex2);
+    ocupado[id] = 0;
+    // ver_ocupacao();
+    pthread_mutex_unlock(&mutex2);
+
+    free(arg);
 
     pthread_exit(NULL);
 }
@@ -63,104 +86,105 @@ void* multiplicar(void* arg) {
 void* dividir(void* arg) {
     printf("quociente: %d\n", a / b);
 
-    segura();
+    int id = *((int*)arg);
 
-    pthread_mutex_lock(&mymutex);
-    nucleos_trabalhando--;
-    pthread_cond_signal(&full);
-    pthread_mutex_unlock(&mymutex);
+    // liberando o nucleo
+    pthread_mutex_lock(&mutex2);
+    ocupado[id] = 0;
+    // ver_ocupacao();
+    pthread_mutex_unlock(&mutex2);
+
+    free(arg);
 
     pthread_exit(NULL);
 }
 
-void carregaFuncoes(Funcao* array, int size) {
-
-    strcpy(array[0].nome, "Somar");
-    array[0].ptr = somar;
-    strcpy(array[1].nome, "Subtrair");
-    array[1].ptr = subtrair;
-    strcpy(array[2].nome, "Multiplicar");
-    array[2].ptr = multiplicar;
-    strcpy(array[3].nome, "Dividir");
-    array[3].ptr = dividir;
-
-}
-
-void carregaFila(Funcao* array, int size, Queue* queue) {
-    srand(time(NULL));
-    int index = rand() % size;
-
-    for (int i = 0; i < NUM_OPERATIONS; i++) {
-        pthread_mutex_lock(&mymutex);
-
-        enqueue(queue, array[index]);
-        pthread_cond_signal(&full);
-
-        pthread_mutex_unlock(&mymutex);
-
-        for (int j = 0; j < 100000; j++);
-
-        index = rand() % size;
-    }
-}
-
-void* escalonador(void* arg) {
-
-    Queue* lista_pronto = (Queue*)arg;
-    int size = lista_pronto->size;
-    pthread_t threads;
+void* agenda(void* arg) {
 
     while (1) {
-        pthread_mutex_lock(&mymutex);
-        Funcao f = lista_pronto->front->next->funcao;
-        dequeue(lista_pronto);
-
-        // cria thread
-        int rc = pthread_create(&(threads), NULL, f.ptr, NULL);
-        if (rc) {
-            printf("erro na execucao de threads\n");
-            exit(-1);
+        // gerando numero aleatorio para escolher a funcao
+        int num = rand() % NUM_FUNC;
+        // criando a funcao
+        Funcao func;
+        // copiando o nome da funcao
+        strcpy(func.nome, nomes_funcao[num]);
+        // escolhendo a funcao
+        switch (num) {
+        case 0:
+            func.ptr = somar;
+            break;
+        case 1:
+            func.ptr = subtrair;
+            break;
+        case 2:
+            func.ptr = multiplicar;
+            break;
+        default:
+            func.ptr = dividir;
+            break;
         }
 
-        nucleos_trabalhando++;
-        while (!lista_pronto->size) {
-            printf("escalonador dormindo, fila vazia.\n");
-            pthread_cond_wait(&full, &mymutex);
+        pthread_mutex_lock(&mutex); // lock
+
+        while (lista_pronto->size == BUFFER_SIZE) {
+            // se a fila estiver cheia, dorme
+            printf("FILA CHEIA!\n");
+            pthread_cond_wait(&pode_encher, &mutex);
         }
-        while (nucleos_trabalhando == NUM_THREADS) {
-            printf("escalonador dormindo, todos os nucleos ocupados.\n");
-            pthread_cond_wait(&full, &mymutex);
-        }
-        pthread_mutex_unlock(&mymutex);
+        enqueue(lista_pronto, func);
+        // acordar o consumidor caso a fila esteja enchendo
+        if (lista_pronto->size == 1) pthread_cond_signal(&pode_esvaziar);
+
+        pthread_mutex_unlock(&mutex);
     }
+}
 
+void* algoritmo(void* arg) {
 
+    while (1) {
+
+        pthread_mutex_lock(&mutex); // lock
+
+        while (lista_pronto->size == 0) { // se a fila estiver vazia, dorme
+            printf("FILA VAZIA!!!\n");
+            pthread_cond_wait(&pode_esvaziar, &mutex);
+        }
+        int* id[N];
+        // percorre os nucleos
+        for (int i = 0; i < N && lista_pronto->size != 0; i++) {
+            id[i] = (int*)malloc(sizeof(int));
+            *id[i] = i;
+            // se o nucleo estiver livre, executa a funcao
+            if (ocupado[i] != 1) {
+                Funcao temp = lista_pronto->front->next->funcao;
+                ocupado[i] = 1; // ocupando o nucleo
+                pthread_create(&(nucleos[i]), NULL, temp.ptr, (void*)id[i]);
+                dequeue(lista_pronto);
+                // acordar o produtor caso a fila esteja esvaziando
+                if (lista_pronto->size == BUFFER_SIZE - 1) pthread_cond_signal(&pode_encher);
+            }
+        }
+
+        pthread_mutex_unlock(&mutex);
+
+    }
 
     pthread_exit(NULL);
 }
 
-int main() {
+int main(void) {
 
-    Queue* queue = create_queue();
-    pthread_t thread_escalonador;
-    unsigned int size = 4;
-    Funcao funcoes[size];
+    srand(time(NULL)); // seed para gerar numeros aleatorios
+    lista_pronto = create_queue(); // criando fila de funcoes
 
-    carregaFuncoes(funcoes, size);
+    ocupado = (int*)calloc(N, sizeof(int)); // vetor de ocupacao dos nucleos
 
-    int rc = pthread_create(&thread_escalonador, NULL, escalonador, (void*)queue);
-    if (rc) {
-        printf("erro na execucao de threads\n");
-        exit(-1);
-    }
+    pthread_create(&escalonador, NULL, algoritmo, NULL); // criando thread escalonador
+    pthread_create(&enfileirador, NULL, agenda, NULL); // criando thread enfileirador
 
-    carregaFila(funcoes, size, queue);
+    pthread_join(escalonador, NULL); // esperando thread escalonador terminar
+    pthread_join(enfileirador, NULL); // esperando thread enfileirador terminar
 
-    pthread_join(thread_escalonador, NULL);
-
-    pthread_mutex_destroy(&mymutex);
-    pthread_cond_destroy(&full);
     pthread_exit(NULL);
-
     return 0;
 }

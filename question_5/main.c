@@ -71,6 +71,7 @@ int main(void) {
         var[0][i] = 1;
     }
 
+    // utilizamos uma logica de divisao de tarefas semelhante a da questão 2
     int passo = num, lastIndex = 0;
     for (int i = 0;i < NUM_THREADS;i++) {
         if (i == 0 && COL != (passo * NUM_THREADS)) {//caso a divisão de variaveis para as threads seja desigual, a thread 0 recebe os indices restantes
