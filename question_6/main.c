@@ -1,18 +1,18 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <time.h>
 #include "queue.h"
 
-#define N 20
+#define N 30
 #define NUM_FUNC 4
 #define BUFFER_SIZE 100
 
 int a = 3;
 int b = 2;
 
-int* ocupado; // vetor de ocupacao dos nucleos
+int ocupado[N] = {0}; // vetor de ocupacao dos nucleos
 
 char nomes_funcao[NUM_FUNC][51] = { {"Somar"}, {"Subtrair"}, {"Multiplicar"}, {"Dividir"} }; // nomes das funcoes
 
@@ -29,25 +29,23 @@ pthread_cond_t pode_encher = PTHREAD_COND_INITIALIZER; // condicao para encher a
 
 Queue* lista_pronto; // fila de funcoes
 
-void ver_ocupacao() {
-    for (int i = 0; i < N; i++) {
-        printf("%d ", ocupado[i]);
-    }
-    printf("\n");
-}
 
 void* somar(void* arg) {
     printf("soma: %d\n", a + b);
     int id = *((int*)arg);
 
+    int rc = pthread_detach(nucleos[id]);
+    if(rc){
+        printf("Falha no detach da thread %d\n", id);
+        exit(-1);
+    }
     // liberando o nucleo
     pthread_mutex_lock(&mutex2);
     ocupado[id] = 0;
-    // ver_ocupacao();
     pthread_mutex_unlock(&mutex2);
 
-    free(arg);
 
+    free(arg);
     pthread_exit(NULL);
 }
 
@@ -56,14 +54,18 @@ void* subtrair(void* arg) {
 
     int id = *((int*)arg);
 
+    int rc = pthread_detach(nucleos[id]);
+    if(rc){
+        printf("Falha no detach da thread %d\n", id);
+        exit(-1);
+    }
     // liberando o nucleo
     pthread_mutex_lock(&mutex2);
     ocupado[id] = 0;
-    // ver_ocupacao();
     pthread_mutex_unlock(&mutex2);
 
-    free(arg);
 
+    free(arg);
     pthread_exit(NULL);
 }
 
@@ -72,14 +74,18 @@ void* multiplicar(void* arg) {
 
     int id = *((int*)arg);
 
+    int rc = pthread_detach(nucleos[id]);
+    if(rc){
+        printf("Falha no detach da thread %d\n", id);
+        exit(-1);
+    }
     // liberando o nucleo
-    pthread_mutex_lock(&mutex2);
+    pthread_mutex_lock(&mutex2); 
     ocupado[id] = 0;
-    // ver_ocupacao();
     pthread_mutex_unlock(&mutex2);
 
-    free(arg);
 
+    free(arg);
     pthread_exit(NULL);
 }
 
@@ -88,14 +94,18 @@ void* dividir(void* arg) {
 
     int id = *((int*)arg);
 
+    int rc = pthread_detach(nucleos[id]);
+    if(rc){
+        printf("Falha no detach da thread %d\n", id);
+        exit(-1);
+    }
     // liberando o nucleo
     pthread_mutex_lock(&mutex2);
     ocupado[id] = 0;
-    // ver_ocupacao();
     pthread_mutex_unlock(&mutex2);
 
-    free(arg);
 
+    free(arg);
     pthread_exit(NULL);
 }
 
@@ -152,19 +162,29 @@ void* algoritmo(void* arg) {
         int* id[N];
         // percorre os nucleos
         for (int i = 0; i < N && lista_pronto->size != 0; i++) {
-            id[i] = (int*)malloc(sizeof(int));
+             id[i] = (int*)malloc(sizeof(int));
             *id[i] = i;
             // se o nucleo estiver livre, executa a funcao
+        
+            pthread_mutex_lock(&mutex2);
             if (ocupado[i] != 1) {
                 Funcao temp = lista_pronto->front->next->funcao;
                 ocupado[i] = 1; // ocupando o nucleo
-                pthread_create(&(nucleos[i]), NULL, temp.ptr, (void*)id[i]);
+                int rc = pthread_create(&(nucleos[i]), NULL, temp.ptr, (void*)id[i]);
+                if (rc) {
+                    printf("falha na criacao das threads erro: %d\n", rc);
+                    exit(-1);
+                }
                 dequeue(lista_pronto);
                 // acordar o produtor caso a fila esteja esvaziando
                 if (lista_pronto->size == BUFFER_SIZE - 1) pthread_cond_signal(&pode_encher);
             }
+            else{
+                free(id[i]);
+            }
+            pthread_mutex_unlock(&mutex2);
+            
         }
-
         pthread_mutex_unlock(&mutex);
 
     }
@@ -176,14 +196,29 @@ int main(void) {
 
     srand(time(NULL)); // seed para gerar numeros aleatorios
     lista_pronto = create_queue(); // criando fila de funcoes
+    int rc;
+    
+    rc = pthread_create(&escalonador, NULL, algoritmo, NULL); // criando thread escalonador
+    if(rc){
+        printf("erro na criação da thread\n");
+        exit(-1);
+    }
+    rc = pthread_create(&enfileirador, NULL, agenda, NULL); // criando thread enfileirador
+    if(rc){
+        printf("erro na criação da thread\n");
+        exit(-1);
+    }
 
-    ocupado = (int*)calloc(N, sizeof(int)); // vetor de ocupacao dos nucleos
-
-    pthread_create(&escalonador, NULL, algoritmo, NULL); // criando thread escalonador
-    pthread_create(&enfileirador, NULL, agenda, NULL); // criando thread enfileirador
-
-    pthread_join(escalonador, NULL); // esperando thread escalonador terminar
-    pthread_join(enfileirador, NULL); // esperando thread enfileirador terminar
+    rc = pthread_join(escalonador, NULL); // esperando thread escalonador terminar
+    if(rc){
+        printf("erro na execucao da thread\n");
+        exit(-1);
+    }
+    rc = pthread_join(enfileirador, NULL); // esperando thread enfileirador terminar
+    if(rc){
+        printf("erro na execucao da thread\n");
+        exit(-1);
+    }
 
     pthread_exit(NULL);
     return 0;
