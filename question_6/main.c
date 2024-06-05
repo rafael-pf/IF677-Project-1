@@ -220,6 +220,8 @@ int main(void) {
         exit(-1);
     }
 
+    clear(lista_pronto);
+
     pthread_exit(NULL);
     return 0;
 }
