@@ -1,3 +1,8 @@
+/*
+A lógica utilizada para essa questão foi a lógica de produtor/consumidor, onde ambas as threads rodam de forma
+infinita [produtor(enfileirador), consumidor(escalonador)]. O enfileirador agenda as funções que funcionam como
+processos sendo requisitados pelo sistema, e o escalonador faz os núcleos executarem esses processos.
+*/
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
